@@ -4,10 +4,25 @@ import {
   Outlet,
   Scripts,
   ScrollRestoration,
+  useRouteLoaderData,
 } from "@remix-run/react";
-import type { LinksFunction } from "@remix-run/node";
+import type { LinksFunction, LoaderFunction } from "@remix-run/node";
+import { rootAuthLoader } from "@clerk/remix/ssr.server";
+import { ClerkApp, useAuth } from "@clerk/remix";
+import { ConvexReactClient } from "convex/react";
+import { useState } from "react";
 
 import "./tailwind.css";
+import { ConvexProviderWithClerk } from "convex/react-clerk";
+
+export const loader: LoaderFunction = (args) => rootAuthLoader(args, () => {
+  const CONVEX_URL = process.env["CONVEX_URL"]!;
+  return {
+    ENV: {
+      CONVEX_URL
+    }
+  };
+});
 
 export const links: LinksFunction = () => [
   { rel: "preconnect", href: "https://fonts.googleapis.com" },
@@ -40,6 +55,15 @@ export function Layout({ children }: { children: React.ReactNode }) {
   );
 }
 
-export default function App() {
-  return <Outlet />;
+function App() {
+  const { ENV } = useRouteLoaderData<typeof loader>("root");
+  const [convex] = useState(() => new ConvexReactClient(ENV.CONVEX_URL));
+
+  return (
+    <ConvexProviderWithClerk client={convex} useAuth={useAuth}>
+      <Outlet />
+    </ConvexProviderWithClerk>
+  )
 }
+
+export default ClerkApp(App)
